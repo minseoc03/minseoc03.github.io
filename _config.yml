@@ -1,4 +1,4 @@
-title: Your awesome title
+title: Minseo Choi's Blog
 author: GitHub User
 email: your-email@domain.com
 description: > # this means to ignore newlines until "show_exerpts:"
@@ -64,5 +64,11 @@ remote_theme: samarsault/plainwhite-jekyll
 
 plugins:
   - jekyll-seo-tag
-  #- jekyll-remote-theme
+  - jekyll-paginate-v2
+  - jekyll-remote-theme #comment this for running in local host
 #  - jekyll-feed
+
+pagination:
+  enabled: true
+  per_page: 7
+  permalink: /page/:num/

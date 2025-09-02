@@ -5,3 +5,4 @@ gemspec
 
 gem "bigdecimal", "~> 3.1"
 gem "logger", "~> 1.6"
+gem "jekyll-paginate-v2"

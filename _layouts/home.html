@@ -1,6 +1,7 @@
 ---
 layout: default
 ---
+<div class="content home-page">
 
 {%- if page.title -%}
   <h1 class="page-heading">{{ page.title }}</h1>
@@ -8,7 +9,8 @@ layout: default
 
 {{ content }}
 
-{%- if site.posts.size > 0 -%}
+{%- assign posts_collection = paginator.posts | default: site.posts -%}
+{%- if posts_collection and posts_collection.size > 0 -%}
   <ul class="posts">
     <li class="posts-labelgroup" id="posts-labelgroup">
       <h1 id="posts-label">posts</h1>
@@ -23,7 +25,7 @@ layout: default
       {% endif %}
     </li>
 
-    {%- for post in site.posts -%}
+    {%- for post in posts_collection -%}
       <li>
         {%- assign date_format = site.plainwhite.date_format | default: "%b %-d, %Y" -%}
         <a class="post-link" href="{{ post.url | relative_url }}">
@@ -34,10 +36,10 @@ layout: default
             <i class="icon-calendar"></i>
             {{ post.date | date: date_format }}
           </div>
-          {%- if post.categories.size > 0-%}
+          {%- if post.categories and post.categories.size > 0 -%}
           <ul class="post-categories">
             {%- for tag in post.categories -%}
-            <li>{{ tag }}</li>
+              <li>{{ tag }}</li>
             {%- endfor -%}
           </ul>
           {%- endif -%}
@@ -51,7 +53,17 @@ layout: default
     {%- endfor -%}
   </ul>
 
-  <!-- <p class="feed-subscribe"><svg class="svg-icon orange">
-		<use xlink:href="{{ '/assets/minima-social-icons.svg#rss' | relative_url }}"></use>
-	</svg><a href="{{ "/feed.xml" | relative_url }}">Subscribe</a></p> -->
+  {%- if paginator and paginator.total_pages and paginator.total_pages > 1 -%}
+  <nav class="pager" aria-label="Posts pagination">
+    {%- if paginator.previous_page_path -%}
+      <a href="{{ paginator.previous_page_path | relative_url }}">← Newer</a>
+    {%- endif -%}
+    <span>Page {{ paginator.page }} / {{ paginator.total_pages }}</span>
+    {%- if paginator.next_page_path -%}
+      <a href="{{ paginator.next_page_path | relative_url }}">Older →</a>
+    {%- endif -%}
+  </nav>
+  {%- endif -%}
 {%- endif -%}
+
+</div>
