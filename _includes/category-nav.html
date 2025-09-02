@@ -1,0 +1,18 @@
+{% assign cat = include.category | default: page.category | default: page.categories | first %}
+
+{% if cat %}
+<nav class="category-nav">
+  <h3 class="category-title">Category: {{ cat }}</h3>
+  <ul>
+    {%- assign posts_in_cat = site.categories[cat] | sort: "date" | reverse -%}
+    {%- for p in posts_in_cat -%}
+      <li>
+        <a href="{{ p.url | relative_url }}"
+           class="{% if p.url == page.url %}active{% endif %}">
+          {{ p.title }}
+        </a>
+      </li>
+    {%- endfor -%}
+  </ul>
+</nav>
+{% endif %}

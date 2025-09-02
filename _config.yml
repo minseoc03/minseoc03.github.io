@@ -40,12 +40,10 @@ plainwhite:
     #gitlab: jekyll
     email: cfi3288@gmail.com
   navigation:
-    - title : "Posts"
-      url : "/posts"
     - title : "MLSys"
-      url : "/mlsys"
+      url : "/categories/mlsys/"
     - title : "ML"
-      url : "/ml"
+      url : "/categories/ml/"
     - title : "About"
       url : "/about"
     # Mastodon instances
@@ -61,9 +59,10 @@ plainwhite:
 # - about.md
 
 # Build settings
+#theme: plainwhite
 remote_theme: samarsault/plainwhite-jekyll
 
 plugins:
   - jekyll-seo-tag
-  - jekyll-remote-theme
+  #- jekyll-remote-theme
 #  - jekyll-feed

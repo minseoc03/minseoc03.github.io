@@ -1,0 +1,20 @@
+---
+layout: page
+---
+
+<div class="content">
+  {% include category-nav.html category=page.category %}
+  <section class="category-posts">
+    {%- assign cat = page.category -%}
+    {%- assign posts_in_cat = site.categories[cat] | sort: "date" | reverse -%}
+    {%- for p in posts_in_cat -%}
+      <article class="post-item">
+        <h2><a href="{{ p.url | relative_url }}">{{ p.title }}</a></h2>
+        <time datetime="{{ p.date | date_to_xmlschema }}">
+          {{ p.date | date: site.plainwhite.date_format | default: "%b %-d, %Y" }}
+        </time>
+        {% if p.excerpt %}<p>{{ p.excerpt | strip_html }}</p>{% endif %}
+      </article>
+    {%- endfor -%}
+  </section>
+</div>
