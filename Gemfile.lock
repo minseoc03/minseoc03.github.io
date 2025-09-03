@@ -20,6 +20,7 @@ GEM
       http_parser.rb (~> 0)
     eventmachine (1.2.7)
     ffi (1.17.2-x64-mingw-ucrt)
+    ffi (1.17.2-x86_64-linux-gnu)
     forwardable-extended (2.6.0)
     google-protobuf (3.25.8)
     http_parser.rb (0.8.0)
@@ -46,6 +47,10 @@ GEM
       webrick (~> 1.7)
     jekyll-paginate-v2 (3.0.0)
       jekyll (>= 3.0, < 5.0)
+    jekyll-remote-theme (0.4.1)
+      addressable (~> 2.0)
+      jekyll (>= 3.5, < 5.0)
+      rubyzip (>= 1.3.0)
     jekyll-sass-converter (3.1.0)
       sass-embedded (~> 1.75)
     jekyll-seo-tag (2.8.0)
@@ -72,8 +77,11 @@ GEM
       ffi (~> 1.0)
     rexml (3.4.2)
     rouge (4.6.0)
+    rubyzip (3.0.2)
     safe_yaml (1.0.5)
     sass-embedded (1.77.5-x64-mingw-ucrt)
+      google-protobuf (>= 3.25, < 5.0)
+    sass-embedded (1.77.5-x86_64-linux-gnu)
       google-protobuf (>= 3.25, < 5.0)
     terminal-table (3.0.2)
       unicode-display_width (>= 1.1.1, < 3)
@@ -82,11 +90,14 @@ GEM
 
 PLATFORMS
   x64-mingw-ucrt
+  x86_64-linux
 
 DEPENDENCIES
   bigdecimal (~> 3.1)
   bundler (> 1.16)
+  jekyll (~> 4.3)
   jekyll-paginate-v2
+  jekyll-remote-theme
   logger (~> 1.6)
   plainwhite!
   rake (~> 12.0)
