@@ -2,7 +2,7 @@
 layout: single
 title:  "Logarithmic Function"
 date:   2024-04-01 21:03:54 
-categories: [mlsys, math]
+categories: [ml, math]
 author_profile: false
 sidebar:
   nav: "ml"
