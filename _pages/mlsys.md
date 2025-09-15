@@ -2,8 +2,15 @@
 layout: single
 permalink: /mlsys/
 title: "MLSys"
-sidebar: mlsys
+author_profile: false
+sidebar:
+    nav: "mlsys"
 ---
 
+{%- assign mlsys_posts = site.posts
+    | where_exp: "p", "p.categories contains 'mlsys'"
+    | sort: "date" | reverse -%}
 
-Welcome to the **MLSys** section. Use the sidebar to navigate.
+{%- for post in mlsys_posts -%}
+  {%- include archive-single.html type="post" -%}
+{%- endfor -%}

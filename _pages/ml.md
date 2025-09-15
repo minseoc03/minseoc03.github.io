@@ -2,8 +2,15 @@
 layout: single
 permalink: /ml/
 title: "ML"
-sidebar: ml
+author_profile: false
+sidebar:
+    nav: "ml"
 ---
 
+{%- assign ml_posts = site.posts
+    | where_exp: "p", "p.categories contains 'ml'"
+    | sort: "date" | reverse -%}
 
-Welcome to the **ML** section. Use the sidebar to navigate.
+{%- for post in ml_posts -%}
+  {%- include archive-single.html type="post" -%}
+{%- endfor -%}
