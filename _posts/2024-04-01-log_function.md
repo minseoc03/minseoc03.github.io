@@ -12,7 +12,7 @@ sidebar:
 
 ### 로그 함수 그래프
 
-![image.png](../assets/images/ml-math/image.png)
+![image.png](/assets/images/ml-math/image.png)
 
 - $x > 0$
 - $x$가 증가할수록 $y$의 증가폭이 줄어드는 양상을 보인다.
