@@ -4,7 +4,7 @@ permalink: /ml/
 title: "ML"
 author_profile: false
 sidebar:
-    nav: "ml"
+  nav: "ml"
 ---
 
 {%- assign ml_posts = site.posts
