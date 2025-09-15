@@ -1,28 +1,23 @@
-# Top masthead navigation
 main:
-- title: "ML"
-url: /ml/
-- title: "MLSys"
-url: /mlsys/
-- title: "Posts"
-url: /
+  - title: "ML"
+    url: /ml/
+  - title: "MLSys"
+    url: /mlsys/
+  - title: "Posts"
+    url: /
 
-
-# Sidebar for ML section
 ml:
-- title: "Overview"
-url: /ml/
-- title: "Notes"
-url: /ml/intro/
-- title: "Projects"
-url: /ml/projects/
+  - title: "Overview"
+    url: /ml/
+  - title: "Notes"
+    url: /ml/intro/
+  - title: "Projects"
+    url: /ml/projects/
 
-
-# Sidebar for MLSys section
 mlsys:
-- title: "Overview"
-url: /mlsys/
-- title: "Compilers"
-url: /mlsys/overview/
-- title: "Kernels"
-url: /mlsys/kernels/
+  - title: "Overview"
+    url: /mlsys/
+  - title: "Compilers"
+    url: /mlsys/overview/
+  - title: "Kernels"
+    url: /mlsys/kernels/
