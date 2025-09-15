@@ -3,8 +3,6 @@ main:
     url: /ml/
   - title: "MLSys"
     url: /mlsys/
-  - title: "Posts"
-    url: /
 
 ml:
   - title: "All"

@@ -9,6 +9,9 @@ remote_theme: "mmistakes/minimal-mistakes"
 # Build settings
 markdown: kramdown
 highlighter: rouge
+kramdown:
+  math_engine: mathjax
+highlighter: rouge
 permalink: /:categories/:title/
 
 # Plugins (GitHub Pages 허용 목록)
