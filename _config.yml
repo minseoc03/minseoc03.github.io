@@ -1,82 +1,66 @@
-# Site basics
-locale: "en-US"
-title: "Minseo’s Dev Blog"
+title: "Minseo’s Notes"
 description: "ML & MLSys blog and notes"
 url: "https://minseoc03.github.io"
-baseurl: "" # if using <user>.github.io; otherwise set to "/repo-name"
+baseurl: ""   # 레포가 user.github.io면 빈 문자열
 
-
-# Theme (remote if using GitHub Pages)
+# Theme
 remote_theme: "mmistakes/minimal-mistakes"
 
+# Build settings
+markdown: kramdown
+highlighter: rouge
+permalink: /:categories/:title/
 
-# Plugins
+# Plugins (GitHub Pages 허용 목록)
 plugins:
-- jekyll-include-cache
-- jekyll-feed
-- jekyll-seo-tag
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-include-cache
 
-
-# Collections for sections
+# Collections
 collections:
-ml:
-output: true
-permalink: /ml/:path/
-mlsys:
-output: true
-permalink: /mlsys/:path/
+  ml:
+    output: true
+    permalink: /ml/:path/
+  mlsys:
+    output: true
+    permalink: /mlsys/:path/
 
-
-# Defaults for content types
+# Defaults
 defaults:
-# Blog posts
-- scope:
-path: ""
-type: posts
-values:
-layout: single
-author_profile: true
-
-
-# ML docs
-- scope:
-path: "_ml"
-type: ml
-values:
-layout: single
-sidebar: ml
-author_profile: true
-
-
-# MLSys docs
-- scope:
-path: "_mlsys"
-type: mlsys
-values:
-layout: single
-sidebar: mlsys
-author_profile: true
-
+  - scope:
+      path: ""
+      type: posts
+    values:
+      layout: single
+      author_profile: true
+  - scope:
+      path: ""
+      type: ml
+    values:
+      layout: single
+      sidebar: ml
+      author_profile: true
+  - scope:
+      path: ""
+      type: mlsys
+    values:
+      layout: single
+      sidebar: mlsys
+      author_profile: true
 
 # Pagination (optional)
 paginate: 5
 paginate_path: "/page:num/"
 
-
-# Minimal Mistakes settings
-minimal_mistakes_skin: "default" # "air", "contrast", etc.
+# Minimal Mistakes options
+minimal_mistakes_skin: "default"
 search: true
 
-
-# Build
-markdown: kramdown
-highlighter: rouge
-
-
-# Social (optional)
+# Author (optional)
 author:
-name: "Minseo Choi"
-links:
-- label: "GitHub"
-icon: "fab fa-github"
-url: "https://github.com/minseoc03"
+  name: "Minseo Choi"
+  links:
+    - label: "GitHub"
+      icon: "fab fa-github"
+      url: "https://github.com/minseoc03"
