@@ -10,8 +10,10 @@ remote_theme: "mmistakes/minimal-mistakes"
 markdown: kramdown
 highlighter: rouge
 kramdown:
+  input: GFM
+  hard_wrap: false
   math_engine: mathjax
-highlighter: rouge
+  syntax_highlighter: rouge
 permalink: /:categories/:title/
 
 # Plugins (GitHub Pages 허용 목록)
