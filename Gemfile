@@ -1,10 +1,11 @@
-# frozen_string_literal: true
-
 source "https://rubygems.org"
-gemspec
 
-gem "bigdecimal", "~> 3.1"
-gem "logger", "~> 1.6"
-gem "jekyll", "~> 4.3"
-gem "jekyll-remote-theme", "~> 0.4.3"
-gem "jekyll-paginate-v2"
+
+# Use GitHub Pages compatible gems (safe default). If you build locally only,
+# you can use the full "minimal-mistakes-jekyll" gem instead.
+gem "github-pages", group: :jekyll_plugins
+
+
+group :jekyll_plugins do
+gem "jekyll-include-cache"
+end

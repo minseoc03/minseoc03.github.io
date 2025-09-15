@@ -1,74 +1,82 @@
-title: Minseo Choi's Blog
-author: minseoc03
-email: cfi3288@gmail.com
-description: > # this means to ignore newlines until "show_exerpts:"
-  Minseo Choi's development blog. A journal to become a MLSys engineer.
-show_excerpts: true # set to true to show excerpts on the homepage
+# Site basics
+locale: "en-US"
+title: "Minseo’s Dev Blog"
+description: "ML & MLSys blog and notes"
 url: "https://minseoc03.github.io"
-baseurl: ""   # 빈 문자열
+baseurl: "" # if using <user>.github.io; otherwise set to "/repo-name"
 
-# Minima date format
-# refer to http://shopify.github.io/liquid/filters/date/ if you want to customize this
-sass:
-  sass_dir: _sass
-plainwhite:
-  name: Minseo Choi
-  tagline: Aspring MLSys Engineer
-  date_format: "%b %-d, %Y"
-  sitemap: true # set to true to generate sitemap.xml content
-  search: true # set to true to enable searchbar
-  dark_mode: true # set to true to add dark mode toggle
-  portfolio_image: "assets/profile-modified.png" # the path from the base directory of the site to the image to display (no / at the start)
-  html_lang: "en" # set the lang attribute of the <html> tag for the pages. See here for a list of codes: https://www.w3schools.com/tags/ref_country_codes.asp
-  condensed_mobile:
-    - home
-    - page
-    - post
-  # generate social links in footer
-  social_links:
-    #twitter: samarsault
-    github:  minseoc03
-    linkedIn: in/minseoc03/
-    #dribbble: jekyll
-    #flickr:   jekyll
-    #instagram: jekyll
-    #pinterest: jekyll
-    #youtube: jekyll
-    #facebook: jekyll
-    #soundcloud: jekyll
-    #telegram: jekyll
-    #gitlab: jekyll
-    email: cfi3288@gmail.com
-  navigation:
-    - title : "MLSys"
-      url : "/categories/mlsys/"
-    - title : "ML"
-      url : "/categories/ml/"
-    - title : "About"
-      url : "/about"
-    # Mastodon instances
-    # mastodon:
-    # - username: jekyll
-    #   instance: example.com
-    # - username: jekyll2
-    #   instance: example.com
 
-# If you want to link only specific pages in your header, uncomment
-# this and add the path to the pages in order as they should show up
-#header_pages:
-# - about.md
+# Theme (remote if using GitHub Pages)
+remote_theme: "mmistakes/minimal-mistakes"
 
-# Build settings
-#theme: plainwhite
-remote_theme: samarsault/plainwhite-jekyll
 
+# Plugins
 plugins:
-  - jekyll-seo-tag
-  - jekyll-paginate-v2
-  - jekyll-remote-theme #comment this for running in local host
-#  - jekyll-feed
+- jekyll-include-cache
+- jekyll-feed
+- jekyll-seo-tag
 
-pagination:
-  enabled: true
-  per_page: 7
-  permalink: /page/:num/
+
+# Collections for sections
+collections:
+ml:
+output: true
+permalink: /ml/:path/
+mlsys:
+output: true
+permalink: /mlsys/:path/
+
+
+# Defaults for content types
+defaults:
+# Blog posts
+- scope:
+path: ""
+type: posts
+values:
+layout: single
+author_profile: true
+
+
+# ML docs
+- scope:
+path: "_ml"
+type: ml
+values:
+layout: single
+sidebar: ml
+author_profile: true
+
+
+# MLSys docs
+- scope:
+path: "_mlsys"
+type: mlsys
+values:
+layout: single
+sidebar: mlsys
+author_profile: true
+
+
+# Pagination (optional)
+paginate: 5
+paginate_path: "/page:num/"
+
+
+# Minimal Mistakes settings
+minimal_mistakes_skin: "default" # "air", "contrast", etc.
+search: true
+
+
+# Build
+markdown: kramdown
+highlighter: rouge
+
+
+# Social (optional)
+author:
+name: "Minseo Choi"
+links:
+- label: "GitHub"
+icon: "fab fa-github"
+url: "https://github.com/minseoc03"

@@ -1,7 +1,6 @@
 ---
 layout: home
-pagination:
-  enabled: true
-  per_page: 5
-  permalink: /page/:num/
+title: "Home"
+author_profile: true
+excerpt: "Recent posts and updates"
 ---
