@@ -7,10 +7,8 @@ sidebar:
   nav: "ml"
 ---
 
-{%- assign ml_posts = site.posts
-    | where_exp: "p", "p.categories contains 'ml'"
-    | sort: "date" | reverse -%}
-
-{%- for post in ml_posts -%}
-  {%- include archive-single.html type="post" -%}
-{%- endfor -%}
+{% for post in site.posts %}
+  {% if post.categories contains "ml" %}
+    {% include archive-single.html type="post" %}
+  {% endif %}
+{% endfor %}
