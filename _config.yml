@@ -3,7 +3,7 @@ locale: "en-US"
 title: "Minseo’s Dev Blog"
 description: "ML & MLSys blog and notes"
 url: "https://minseoc03.github.io"
-baseurl: "" # if using <user>.github.io; otherwise set to "/repo-name"
+baseurl: "minseoc03" # if using <user>.github.io; otherwise set to "/repo-name"
 
 
 # Theme (remote if using GitHub Pages)
