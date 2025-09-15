@@ -6,7 +6,6 @@ categories: [mlsys, math]
 author_profile: false
 sidebar:
   nav: "ml"
-math: true 
 ---
 
 ## 1-2. 로그 함수

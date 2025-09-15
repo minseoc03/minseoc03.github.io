@@ -39,6 +39,7 @@ defaults:
     values:
       layout: single
       author_profile: true
+      mathjax: true
   - scope:
       path: ""
       type: ml
