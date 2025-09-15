@@ -1,4 +1,4 @@
-title: "Minseo’s Notes"
+title: "Minseo’s Dev Blog"
 description: "ML & MLSys blog and notes"
 url: "https://minseoc03.github.io"
 baseurl: ""   # 레포가 user.github.io면 빈 문자열
@@ -62,7 +62,15 @@ include: ["_pages"]
 # Author (optional)
 author:
   name: "Minseo Choi"
+  avatar: "/assets/images/profile.png"   # 프로필 이미지 경로
+  bio: "Sophomore @ JHU · Passionate about ML & MLSys"
   links:
     - label: "GitHub"
       icon: "fab fa-github"
       url: "https://github.com/minseoc03"
+    - label: "LinkedIn"
+      icon: "fab fa-linkedin"
+      url: "https://www.linkedin.com/in/minseoc03/"
+    - label: "Email"
+      icon: "fas fa-envelope"
+      url: "mailto:cfi3288@gmail.com"
