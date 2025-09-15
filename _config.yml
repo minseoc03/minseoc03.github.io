@@ -57,6 +57,8 @@ paginate_path: "/page:num/"
 minimal_mistakes_skin: "default"
 search: true
 
+include: ["_pages"]
+
 # Author (optional)
 author:
   name: "Minseo Choi"
