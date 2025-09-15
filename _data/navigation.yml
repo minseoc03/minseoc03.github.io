@@ -9,15 +9,15 @@ main:
 ml:
   - title: "Overview"
     url: /ml/
-  - title: "Notes"
-    url: /ml/intro/
-  - title: "Projects"
-    url: /ml/projects/
+  - title: "Math"
+    url: /ml/math/
+  - title: "DL Theory"
+    url: /ml/dl_theory/
 
 mlsys:
   - title: "Overview"
     url: /mlsys/
   - title: "Compilers"
-    url: /mlsys/overview/
+    url: /mlsys/compilers/
   - title: "Kernels"
     url: /mlsys/kernels/

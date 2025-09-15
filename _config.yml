@@ -62,8 +62,8 @@ include: ["_pages"]
 # Author (optional)
 author:
   name: "Minseo Choi"
-  avatar: "/assets/images/profile.png"   # 프로필 이미지 경로
-  bio: "Sophomore @ JHU · Passionate about ML & MLSys"
+  avatar: "/assets/images/profile.png"
+  bio: "Sophomore @ JHU<br>Passionate about ML & MLSys"
   links:
     - label: "GitHub"
       icon: "fab fa-github"
