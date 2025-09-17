@@ -12,7 +12,7 @@ sidebar:
 
 ### 전치(Transpose)
 
-$\begin{bmatrix}a_{11} & a_{12} \\ a_{21} & a_{22}\end{bmatrix}^T = \begin{bmatrix}a_{11} & a_{21} \\ a_{12} & a_{22}\end{bmatrix} \implies\begin{bmatrix}A^T\end{bmatrix}_{ij} = A_{ji}$
+ $ \begin{bmatrix}a_{11} & a_{12} \\ a_{21} & a_{22}\end{bmatrix} ^T = \begin{bmatrix}a_{11} & a_{21} \\ a_{12} & a_{22}\end{bmatrix} \implies \begin{bmatrix}A^T\end{bmatrix}_{ij} = A_{ji} $
 
 ### 전치의 성질
 
