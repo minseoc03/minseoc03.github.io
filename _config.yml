@@ -64,7 +64,7 @@ minimal_mistakes_skin: "default"
 search: true
 
 include: ["_pages"]
-
+show_date: true
 # Author (optional)
 author:
   name: "Minseo Choi"
