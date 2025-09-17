@@ -1,7 +1,7 @@
 ---
 layout: single
 permalink: /ml/
-title: "ML"
+title: "All Posts in ML"
 author_profile: false
 sidebar:
   nav: "ml"

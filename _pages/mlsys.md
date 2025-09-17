@@ -1,7 +1,7 @@
 ---
 layout: single
 permalink: /mlsys/
-title: "MLSys"
+title: "All Posts in MLSys"
 author_profile: false
 sidebar:
   nav: "mlsys"
