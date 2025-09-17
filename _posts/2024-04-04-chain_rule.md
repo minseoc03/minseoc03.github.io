@@ -22,9 +22,9 @@ sidebar:
 ### 예시 (연쇄법칙 적용)
 
 - $(x^2+1)^2 \to x^2+1 \to x^2 \to x$
-- $\dfrac{d(x^2+1)^2}{dx} = \dfrac{d(x^2+1)^2}{d(x^2+1)} \dfrac{d(x^2+1)}{dx^2} \dfrac{dx^2}{dx}\\=2(x^2+1)\cdot 1 \cdot 2x\\=2(x^2+1)2x$
+- $\dfrac{d(x^2+1)^2}{dx} = \dfrac{d(x^2+1)^2}{d(x^2+1)} \dfrac{d(x^2+1)}{dx^2} \dfrac{dx^2}{dx} \\ =2(x^2+1)\cdot 1 \cdot 2x \\ =2(x^2+1)2x$
 
 ### 연쇄법칙 증명
 
 - $Let \enspace y = f(x) \enspace \&  \enspace z = g(y) = g(f(x))$
-- $\dfrac{dz}{dx} = \lim\limits_{\varDelta x \to 0}\dfrac{g(f(x+\varDelta x)) -g(f(x))}{\varDelta x} \\=\lim\limits_{\varDelta x \to 0}\dfrac{g(f(x+\varDelta x)) -g(f(x))}{f(x+\varDelta x) - f(x)} \cdot \dfrac{f(x+\varDelta x)-f(x)}{\varDelta x} \\ =\dfrac{dz}{dy}\dfrac{dy}{dx}$
+- $\dfrac{dz}{dx} = \lim\limits_{\varDelta x \to 0}\dfrac{g(f(x+\varDelta x)) -g(f(x))}{\varDelta x} \\ =\lim\limits_{\varDelta x \to 0}\dfrac{g(f(x+\varDelta x)) -g(f(x))}{f(x+\varDelta x) - f(x)} \cdot \dfrac{f(x+\varDelta x)-f(x)}{\varDelta x} \\ =\dfrac{dz}{dy}\dfrac{dy}{dx}$

@@ -41,7 +41,7 @@ $\implies L(\vec w_{k+1}) - L(\vec w_k) = \vec\varDelta \bullet \vec g$         
 
 → $\vec g$는 미분 값이므로 고정 값이고 $\vec \varDelta$는 변화 가능한 변수이다.
 
-→ $\vec\varDelta \bullet \vec g= ||\vec\varDelta||||\vec g||\cos\theta$ 이므로 $\theta = 0$일 때 내적이 최대가 되고 경사가 가장 가파르다는 것을 알 수 있다.
+→ $\vec\varDelta \bullet \vec g= \mid\mid\vec\varDelta\mid\mid\mid\mid\vec g\mid\mid\cos\theta$ 이므로 $\theta = 0$일 때 내적이 최대가 되고 경사가 가장 가파르다는 것을 알 수 있다.
 
 → 즉, $\vec g$(그라디언트)와 $\vec\varDelta$(변화량)이 방향이 같아야 경사가 가장 가파르다.
 

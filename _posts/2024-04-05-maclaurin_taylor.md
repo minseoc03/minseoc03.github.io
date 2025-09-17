@@ -60,34 +60,34 @@ $C_n=\dfrac{f^n(a)}{n!}$
 
 $y = e^x$
 
-$\begin{cases}f'(x) = e^x\\f''(x) = e^x\\f'''(x)=e^x\\\vdots\end{cases}$
+$\begin{cases}f'(x) = e^x \\ f''(x) = e^x \\ f'''(x)=e^x\\ \vdots \end{cases}$
 
-$\begin{cases}f'(0) = 1\\f''(0) = 1\\f'''(0)=1\\\vdots\end{cases}$
+$\begin{cases}f'(0) = 1 \\ f''(0) = 1 \ f'''(0)=1 \\ \vdots\end{cases}$
 
-$\therefore y=e^x\\\implies 1+x+\frac{1}{2!}x^2+\frac{1}{3!}x^3+\frac{1}{4!}x^4+\cdots$
+$\therefore y=e^x \\ \implies 1+x+ \frac{1}{2!}x^2+ \frac{1}{3!}x^3+\frac{1}{4!}x^4+ \cdots$
 
 $y = \ln x\enspace(a = 1)$
 
-$\begin{cases}f(x) = \ln x\\f'(x) = \frac1x\\f''(x)=-\frac{1}{x^2}\\f'''(x)=\frac{2}{x^3}\\f''''(x)=-6x^{-4}\\\vdots\end{cases}$
+$\begin{cases}f(x) = \ln x \\ f'(x) = \frac1x \\ f''(x)=-\frac{1}{x^2} \\ f'''(x)= \frac{2}{x^3} \\ f''''(x)=-6x^{-4} \\ \vdots \end{cases}$
 
-$\begin{cases}f(a) = 0\\f'(a) = 1\\f''(a)=-1\\f'''(a)=2\\f''''(a)=-6\\\vdots\end{cases}$
+$\begin{cases}f(a) = 0 \\ f'(a) = 1 \\ f''(a)=-1 \\ f'''(a)=2 \\ f''''(a)=-6 \\ \vdots\end{cases}$
 
-$\therefore y=\ln x\\\implies (x-a)-\frac12(x-a)^2+\frac13(x-a)^3\cdots$
+$\therefore y=\ln x \\ \implies (x-a)- \frac12(x-a)^2+ \frac13(x-a)^3 \cdots$
 
 - 하지만 $\ln x$는 $x\geq2$부터 수렴하지 않는다.
 - 즉, 테일러 급수는 무적이 아니다.
 
 ### 테일러 급수 수렴 구간
 
-$\lim\limits_{n\to\infty}|\dfrac{p_{n+1}}{p_n}| < 1$
+$\lim\limits_{n\to\infty}\mid\dfrac{p_{n+1}}{p_n}\mid < 1$
 
 ### 수렴 구간 예시
 
 $Let \enspace y=\ln x$
 
-$\implies \lim\limits_{n\to\infty}|\dfrac{\frac{1}{n+1}(x-1)^{n+1}}{\frac{1}{n}(x-1)^n}|<1$
+$\implies \lim\limits_{n\to\infty}\mid\dfrac{\frac{1}{n+1}(x-1)^{n+1}}{\frac{1}{n}(x-1)^n}\mid<1$
 
-$\implies \lim\limits_{n\to\infty}|\dfrac{n}{n+1}(x-1)|<1$
+$\implies \lim\limits_{n\to\infty}\mid\dfrac{n}{n+1}(x-1)\mid<1$
 
 $\implies -1 < x-1 <1$
 
