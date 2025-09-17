@@ -1,7 +1,7 @@
 ---
 layout: single
 title:  "Derivative"
-date:   2024-04-04 21:03:54 
+date:   2024-04-04 21:00:54 
 categories: [ml, math]
 author_profile: false
 sidebar:

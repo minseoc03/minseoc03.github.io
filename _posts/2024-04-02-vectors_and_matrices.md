@@ -1,7 +1,7 @@
 ---
 layout: single
 title:  "Vector & Matrix"
-date:   2024-04-02 21:03:54 
+date:   2024-04-02 19:01:54 
 categories: [ml, math]
 author_profile: false
 sidebar:
