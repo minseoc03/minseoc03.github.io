@@ -39,7 +39,7 @@ $\begin{cases}x_1+2y_1 = 4 \\ 2x_1+5y_1 = 9\end{cases} $$ \And\begin{cases}x_2+2
 
 벡터의 크기와 방향이 같다면 같은 벡터라고 취급한다.
 
-![image 1.png](1.%20Basic%20Math/images/image%201.png)
+![image 1.png](/assets/images/ml-math/image%201.png)
 
 → Norm = 벡터의 크기 = 길이
 

@@ -23,7 +23,7 @@ sidebar:
     - $l_i =$  i의 길이
 - 엔트로피 $= \sum_i-p_ilog_2p_i$
 
-![image 7.png](1.%20Basic%20Math/images/image%207.png)
+![image 7.png](/assets/images/ml-math/image%207.png)
 
 - $l_i = -log_2p_i$ 라는 함수의 그래프이다.
 - $p_i$는 확률 값이기에 1보다 낮은 값만 보면 된다.

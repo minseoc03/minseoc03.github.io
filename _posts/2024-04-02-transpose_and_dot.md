@@ -38,7 +38,7 @@ $\begin{bmatrix}a_1 \\ a_2\end{bmatrix}\bullet\begin{bmatrix}b_1 \\ b_2\end{bmat
 
 $\overrightarrow{a}^T\overrightarrow{b} = \mid\mid\overrightarrow{a}\mid\mid\,\mid\mid\overrightarrow{b}\mid\mid\,\cos\theta \enspace \text{where \mid\mid \mid\mid means L2 norm}$
 
-![image 2.png](1.%20Basic%20Math/images/image%202.png)
+![image 2.png](/assets/images/ml-math/image%202.png)
 
 - 두 벡터가 겹칠 때 $\theta = 0$이므로 $\cos 0 = 1$이라는최댓값을 가지게 된다. 즉, **벡터가 닮을 수록 내적의 값이 커진다**.
 - 반대로 두 벡터가 직각일 때 $\cos 90 = 0$이므로 내적이 0이 된다.
