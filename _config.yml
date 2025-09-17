@@ -65,6 +65,8 @@ search: true
 
 include: ["_pages"]
 show_date: true
+date_format: "%Y-%m-%d"
+
 # Author (optional)
 author:
   name: "Minseo Choi"
