@@ -30,6 +30,9 @@ collections:
   mlsys:
     output: true
     permalink: /mlsys/:path/
+  about:
+    output: true
+    permalink: /about/:path/
 
 # Defaults
 defaults:
@@ -53,6 +56,13 @@ defaults:
     values:
       layout: single
       sidebar: mlsys
+      author_profile: true
+  - scope:
+      path: ""
+      type: about
+    values:
+      layout: single
+      sidebar: about
       author_profile: true
 
 # Pagination (optional)
