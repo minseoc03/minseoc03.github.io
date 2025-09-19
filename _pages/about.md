@@ -20,7 +20,7 @@ I’m a **Computer Science sophomore at Johns Hopkins University**, deeply passi
 ---
 
 ## 📂 Projects
-- [**LLVM Kaleidoscope Implementation**](https://github.com/minseoc03/llvm-kaleidoscope-playground): Designing a DSL + compiler backend with LLVM IR and GPU kernels.  
+- [**LLVM Kaleidoscope Implementation**](https://github.com/minseoc03/llvm-kaleidoscope-playground): A toy compiler implementing a lexer, parser, AST, LLVM IR generator, and JIT compilation.
 - [**Korean-English Translation**](https://github.com/minseoc03/ko-en-translation): Transformer-based MT achieving **29.9 BLEU** on AI-Hub dataset.  
 
 ---
