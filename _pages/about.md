@@ -25,18 +25,6 @@ I’m a **Computer Science sophomore at Johns Hopkins University**, deeply passi
 
 ---
 
-## 🎯 Career Goals
-I aim to build a career at the intersection of **compilers, ML systems, and GPU/accelerator optimization**, contributing to **open-source projects (LLVM, IREE, MLIR, Triton)** and pursuing internships in **MLSys / AI Compiler Engineering**.
-
----
-
-## 🌱 Outside of Tech
-- 🥁 Drummer (working on paradiddles, 6-stroke rolls at 150 BPM).  
-- 🖥️ Blogger (sharing notes on ML & MLSys here).  
-- ✈️ Traveler (recent trips to LA, Vegas, and Singapore).  
-
----
-
 📫 Feel free to reach out via [LinkedIn](https://www.linkedin.com/in/minseoc03/) or check my work on [GitHub](https://github.com/minseoc03).
 
 ---
