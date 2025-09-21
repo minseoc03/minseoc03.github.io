@@ -76,7 +76,11 @@ search: true
 
 include: ["_pages"]
 show_date: true
-date_format: "%Y-%m-%d"
+date_format: "%b %d, %Y"
+
+sass:
+  sass_dir: _sass
+
 
 # Author (optional)
 author:
