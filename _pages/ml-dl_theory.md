@@ -3,6 +3,7 @@ layout: single
 permalink: /ml/dl_theory/
 title: "DL Theory"
 author_profile: false
+show_excerpts: false
 sidebar:
   nav: "ml"
 ---
