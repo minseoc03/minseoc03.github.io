@@ -2,7 +2,6 @@
 ---
 @import "minimal-mistakes/skins/{{ site.minimal_mistakes_skin | default: 'default' }}";
 @import "minimal-mistakes";
-
 /* Title spacing a bit tighter */
 .archive__item-title {
   margin-bottom: .25rem;
