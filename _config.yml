@@ -43,6 +43,7 @@ defaults:
       layout: single
       author_profile: true
       mathjax: true
+      show_excerpts: false
   - scope:
       path: ""
       type: ml
