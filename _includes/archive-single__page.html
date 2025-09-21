@@ -1,5 +1,5 @@
 {% assign title = post.title | default: post.name %}
-{% assign date_str = post.date | date: "%Y-%m-%d" %}
+{% assign date_str = post.date | date: "%b %-d, %Y" %}
 {% assign cat_path = site.category_archive.path | default: "/categories/" %}
 {% assign tag_path = site.tag_archive.path | default: "/tags/" %}
 
@@ -16,21 +16,17 @@
     <div class="meta-right">
       {% assign first = true %}
 
-      {% if post.categories and post.categories != empty %}
+        {%- comment -%} 카테고리 링크: 누적 경로(/a/, /a/b/, /a/b/c/) {%- endcomment -%}
+        {% if post.categories and post.categories != empty %}
+        {% assign base = "" %}
         {% for cat in post.categories %}
-          {% unless first %}<span class="sep">·</span>{% endunless %}
-          <a class="meta-link" href="{{ cat_path | relative_url }}#{{ cat | slugify }}">{{ cat }}</a>
-          {% assign first = false %}
+            {% assign slug = cat | slugify %}
+            {% assign base = base | append: "/" | append: slug %}
+            <a class="meta-link" href="{{ base | append: "/" | relative_url }}">{{ cat }}</a>
+            {% unless forloop.last %}<span class="sep"> / </span>{% endunless %}
         {% endfor %}
-      {% endif %}
+        {% endif %}
 
-      {% if post.tags and post.tags != empty %}
-        {% for tag in post.tags %}
-          {% unless first %}<span class="sep">·</span>{% endunless %}
-          <a class="meta-link" href="{{ tag_path | relative_url }}#{{ tag | slugify }}">{{ tag }}</a>
-          {% assign first = false %}
-        {% endfor %}
-      {% endif %}
     </div>
   </div>
 </article>
