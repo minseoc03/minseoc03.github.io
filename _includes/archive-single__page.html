@@ -1,18 +1,36 @@
 {% assign title = post.title | default: post.name %}
 {% assign date_str = post.date | date: "%Y-%m-%d" %}
 {% assign cat_path = site.category_archive.path | default: "/categories/" %}
+{% assign tag_path = site.tag_archive.path | default: "/tags/" %}
 
 <article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
   <h2 class="archive__item-title" itemprop="headline">
     <a href="{{ post.url | relative_url }}" rel="permalink">{{ title }}</a>
-    <span class="post-list-meta">
-      {{ date_str }}
-      {% if post.categories and post.categories != empty %} ·
+  </h2>
+
+  <div class="post-list-meta-row">
+    <div class="meta-left">
+      <time datetime="{{ post.date | date_to_xmlschema }}">{{ date_str }}</time>
+    </div>
+
+    <div class="meta-right">
+      {% assign first = true %}
+
+      {% if post.categories and post.categories != empty %}
         {% for cat in post.categories %}
-          <a href="{{ cat_path | relative_url }}#{{ cat | slugify }}">{{ cat }}</a>{% unless forloop.last %} / {% endunless %}
+          {% unless first %}<span class="sep">·</span>{% endunless %}
+          <a class="meta-link" href="{{ cat_path | relative_url }}#{{ cat | slugify }}">{{ cat }}</a>
+          {% assign first = false %}
         {% endfor %}
       {% endif %}
-    </span>
-  </h2>
-  {%- comment -%} excerpt intentionally removed {%- endcomment -%}
+
+      {% if post.tags and post.tags != empty %}
+        {% for tag in post.tags %}
+          {% unless first %}<span class="sep">·</span>{% endunless %}
+          <a class="meta-link" href="{{ tag_path | relative_url }}#{{ tag | slugify }}">{{ tag }}</a>
+          {% assign first = false %}
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
 </article>
