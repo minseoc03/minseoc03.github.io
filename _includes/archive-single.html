@@ -1,0 +1,7 @@
+{% assign title = post.title | default: post.name %}
+<article class="archive__item" itemscope itemtype="https://schema.org/CreativeWork">
+  <h2 class="archive__item-title" itemprop="headline">
+    <a href="{{ post.url | relative_url }}" rel="permalink">{{ title }}</a>
+  </h2>
+  {%- comment -%} Excerpt intentionally removed {%- endcomment -%}
+</article>
