@@ -29,3 +29,6 @@ mlsys:
     url: /mlsys/cuda/
   - title: "LLVM"
     url: /mlsys/llvm/
+  - title: "Quantization"
+    url : /mlsys/quantization/
+
