@@ -25,7 +25,8 @@ I’m a **Computer Science sophomore at Johns Hopkins University**, deeply passi
 
 ---
 
-📫 Feel free to reach out via [LinkedIn](https://www.linkedin.com/in/minseoc03/) or check my work on [GitHub](https://github.com/minseoc03).
+## 📫 Contact
+Feel free to reach out via [LinkedIn](https://www.linkedin.com/in/minseoc03/) or check my work on [GitHub](https://github.com/minseoc03).
 
 ---
 
