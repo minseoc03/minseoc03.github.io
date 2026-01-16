@@ -1,7 +1,7 @@
 ---
 layout: single
 title: "LLM Serving 101: Prefill, Decode, Batching, and the Systems Behind Large Language Models"
-description: "Recent thoughts about MXFP4 and GPT-OSS"
+description: "Recent thoughts about LLM Serving"
 date: 2026-01-16 01:10:54
 categories: [mlsys, inference]
 author_profile: false
