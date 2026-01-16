@@ -2,13 +2,14 @@
 layout: single
 title: "LLM Serving 101: Prefill, Decode, Batching, and the Systems Behind Large Language Models"
 description: "Recent thoughts about MXFP4 and GPT-OSS"
-date: 2026-01-16 21:10:54
+date: 2026-01-16 01:10:54
 categories: [mlsys, inference]
 author_profile: false
 show_excerpts: false
 sidebar:
   nav: "mlsys"
 ---
+
 > **Prerequisites**
 This post assumes that the reader is already familiar with the Transformer architecture, including self-attention, autoregressive decoding, and the role of key–value (KV) caches.
 If you are new to Transformers, it is recommended to review the basics before reading, as this post focuses on inference-time systems rather than model fundamentals.
