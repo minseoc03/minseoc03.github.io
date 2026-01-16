@@ -12,3 +12,7 @@
 .archive-item { display:flex; align-items:baseline; gap: .8rem; padding:.3rem 0; }
 .archive-item .archive-date { width: 4.2rem; color:#666; font-variant-numeric: tabular-nums; }
 .archive-item .archive-link { font-weight: 600; }
+
+.page__content {
+  font-size: 0.8rem;
+}
