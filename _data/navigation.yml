@@ -31,4 +31,6 @@ mlsys:
     url: /mlsys/llvm/
   - title: "Quantization"
     url : /mlsys/quantization/
+  - title: "Inference"
+    url : /mlsys/inference/
 
