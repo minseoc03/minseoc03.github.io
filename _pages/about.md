@@ -41,4 +41,4 @@ Feel free to reach out via [LinkedIn](https://www.linkedin.com/in/minseoc03/) or
 
 ## Resume
 
-<embed src="/assets/files/Minseo Choi.pdf" type="application/pdf" width="100%" height="400px" />
+<embed src="/assets/files/Minseo Choi.pdf" type="application/pdf" width="100%" height="100px" />
