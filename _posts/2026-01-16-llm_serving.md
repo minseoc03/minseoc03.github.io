@@ -163,7 +163,7 @@ Benefits:
 
 #### 6.4 Quantization (Decode-Focused)
 Lower-precision formats:
-- reduce memory bandwidth
+- reduce memory footprint
 - benefit decode more than prefill
 - improve throughput at scale
 
