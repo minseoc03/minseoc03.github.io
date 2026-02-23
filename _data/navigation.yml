@@ -33,4 +33,6 @@ mlsys:
     url : /mlsys/quantization/
   - title: "Inference"
     url : /mlsys/inference/
+  - title: "Hardware"
+    url : /mlsys/hardware/
 
