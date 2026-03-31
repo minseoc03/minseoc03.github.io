@@ -69,23 +69,86 @@ Since softmax computation (exponentials, max, normalization) is now a co-bottlen
 
 On Hopper (FA3), each row of an accumulator tile was distributed across **4 threads in an interleaved pattern**. Computing a row-wise operation like softmax required **inter-warp shuffles** — threads had to exchange partial results to reconstruct full rows before computing the row max and row sum. This shuffle overhead was a tax on every softmax step.
 
-On Blackwell (FA4), the 128×128 tile and TMEM layout allow **each thread to own an entire row of 128 elements**. Two warpgroups of 128 threads each handle softmax, with each thread processing one complete row. This eliminates inter-warp shuffles entirely. The softmax flow per warpgroup becomes:
+<!-- 🔄 CHANGED: Added FA3 code snippet showing quad_allreduce shuffle -->
 
-```
-1. Load entire row from TMEM into registers
-2. Compute row max
-3. Subtract max, exponentiate, convert to BF16
-4. Compute row sum
-5. Store P tile to TMEM
+Here's how FA3 handles it in C++ — notice the `quad_allreduce_` call that performs cross-thread reduction, required because each thread only holds a partial row:
+
+```cpp
+// FA3 (Hopper) — hopper/softmax.h
+// Each thread holds a partial row. 4 threads per row in interleaved layout.
+// After computing local row_sum, must shuffle across threads to get the full sum.
+
+__forceinline__ __device__ TensorT finalize(float const final_scale=1.f) {
+    SumOp<float> sum_op;
+    quad_allreduce_(row_sum, row_sum, sum_op);  // ← Cross-thread shuffle required!
+    TensorT scores_scale;
+    #pragma unroll
+    for (int mi = 0; mi < size(row_sum); ++mi) {
+        float sum = row_sum(mi);
+        float inv_sum = (sum == 0.f || sum != sum) ? 0.f : 1.f / sum;
+        scores_scale(mi) = inv_sum * final_scale;
+    }
+    return scores_scale;
+};
 ```
 
-No shuffles. No partial reductions across threads. Clean and fast.
+On Blackwell (FA4), the 128×128 tile and TMEM layout allow **each thread to own an entire row of 128 elements**. Two warpgroups of 128 threads each handle softmax, with each thread processing one complete row. This eliminates inter-warp shuffles entirely:
+
+<!-- 🔄 CHANGED: Added FA4 code snippet showing no-shuffle softmax -->
+
+```python
+# FA4 (Blackwell) — flash_attn/cute/softmax.py
+# Each thread owns an entire row → no shuffle needed.
+# SoftmaxSm100 operates on 1 row per thread (num_rows=1).
+
+@staticmethod
+def create(
+    scale_log2: Float32,
+    rescale_threshold: cutlass.Constexpr[float] = 0.0,
+    softmax_scale: Float32 | None = None,
+):
+    num_rows = 1  # ← Each thread owns exactly 1 full row. No shuffle.
+    arch = 100
+    row_max = cute.make_rmem_tensor(num_rows, Float32)
+    row_sum = cute.make_rmem_tensor(num_rows, Float32)
+    return SoftmaxSm100(
+        scale_log2, num_rows, row_max, row_sum, arch, softmax_scale,
+        rescale_threshold=rescale_threshold,
+    )
+```
+
+The difference is structural: FA3's `kNRows` is typically 4–8 (partial rows distributed across threads), requiring `quad_allreduce_` at finalization. FA4's `num_rows = 1` means each thread computes the complete row max and row sum locally — zero cross-thread communication.
 
 ### Decoupled Rescaling via Correction Warpgroup
 
 In FA3, the online softmax rescaling step — where previous output tiles are multiplied by `exp(m_old - m_new)` to account for updated row maxima — happened inline within the softmax warpgroup. This put rescaling squarely on the **critical path**.
 
+<!-- 🔄 CHANGED: Added FA3 rescaling code snippet -->
+
+```cpp
+// FA3 (Hopper) — hopper/softmax.h
+// Rescaling happens inline in the same warpgroup that computes softmax.
+// This is on the critical path — must complete before the next MMA.
+
+template<typename Tensor1>
+__forceinline__ __device__ void rescale_o(Tensor1 &acc_o, TensorT const &scores_scale) {
+    Tensor acc_o_rowcol = make_tensor(acc_o.data(),
+        flash::convert_layout_acc_rowcol(acc_o.layout()));
+    #pragma unroll
+    for (int mi = 0; mi < size<0>(acc_o_rowcol); ++mi) {
+        #pragma unroll
+        for (int ni = 0; ni < size<1>(acc_o_rowcol); ++ni) {
+            acc_o_rowcol(mi, ni) *= scores_scale(mi);  // ← On the critical path
+        }
+    }
+};
+```
+
 In FA4, because intermediate results are communicated via TMEM rather than registers, the rescaling is offloaded to a separate **"correction" warpgroup**. The softmax warpgroups compute P and hand off rescale statistics through TMEM; the correction warpgroup applies the rescaling independently. This takes rescaling off the critical path of the main softmax + MMA pipeline.
+
+<!-- 🔄 CHANGED: Added explanation of why TMEM enables decoupling -->
+
+The key enabler is TMEM: on Hopper, accumulators live in registers which are thread-private — there's no way for a separate warpgroup to access another warpgroup's accumulator. On Blackwell, accumulators live in TMEM which is accessible by all warpgroups within the same SM. This allows the correction warpgroup to read rescale statistics and apply them to the output accumulator independently.
 
 The overall warpgroup assignment per thread block:
 
@@ -95,6 +158,30 @@ The overall warpgroup assignment per thread block:
 | WG1 | Softmax (tile H — "high" Q tile) |
 | WG2 | Softmax (tile L — "low" Q tile) |
 | WG3 | Correction (rescaling) |
+
+<!-- 🔄 CHANGED: Added FA3 warpgroup assignment comparison -->
+
+Compare with FA3's warp specialization, where the division was simpler:
+
+```cpp
+// FA3 (Hopper) — hopper/flash_fwd_kernel_sm90.h
+// Warp group 0 = Producer (TMA loads), Warp groups 1+ = Consumer (MMA + softmax)
+// Softmax and rescaling happen in the SAME consumer warpgroup.
+
+pipeline_params_k.role = warp_group_idx == 0
+    ? MainloopPipelineK::ThreadCategory::Producer   // WG0: data movement
+    : MainloopPipelineK::ThreadCategory::Consumer;   // WG1+: MMA + softmax + rescaling
+
+if (warp_group_idx == 0) {  // Producer
+    cutlass::arch::warpgroup_reg_dealloc<LoadRegisterRequirement>();
+    // ... TMA loads only
+} else {  // Consumer — does EVERYTHING: MMA, softmax, rescaling
+    cutlass::arch::warpgroup_reg_alloc<MmaRegisterRequirement>();
+    // ... MMA + softmax + rescale_o all interleaved in one warpgroup
+}
+```
+
+FA4 splits the consumer into three specialized roles (softmax-H, softmax-L, correction), enabled by TMEM making the accumulator accessible across warpgroups.
 
 The two softmax warpgroups are explicitly synchronized so their exponential-heavy critical sections don't overlap, ensuring they don't fight for the same MUFU resource.
 
@@ -113,6 +200,27 @@ FA4 chooses **Option B**. Why?
 - **Immediate compute start.** Two S tiles can be computed back-to-back at pipeline startup, filling the pipeline faster.
 - **In-place conversion.** Once S is consumed by softmax and converted to P (which is BF16, half the size), P overwrites S. This is safe because S is no longer needed after softmax.
 - **Statistics storage.** The leftover space (since P is smaller than S) is used to store rescale statistics for the correction warpgroup.
+- **And two S tiles can be computed at once**, immediately kicking off the pipeline.
+
+<!-- 🔄 CHANGED: Added FA4 TMEM allocation code -->
+
+In the actual code, you can see the TMEM capacity check and 2-CTA tile configuration:
+
+```python
+# FA4 (Blackwell) — flash_attn/cute/flash_fwd_sm100.py
+# TMEM capacity validation and tile configuration
+
+self.cta_group_size = 2 if self.use_2cta_instrs else 1
+# cta_tiler M includes only 1 CTA, scheduler accounts for cluster shape
+self.cta_tiler = (self.q_stage * m_block_size, n_block_size, self.head_dim_padded)
+# With 2CTA, the MMA tiler M covers both CTAs
+self.mma_tiler_qk = (self.cta_group_size * m_block_size, n_block_size, self.head_dim_padded)
+self.mma_tiler_pv = (self.cta_group_size * m_block_size, self.head_dim_v_padded, n_block_size)
+
+# q_stage=2 means two Q tiles (ping-pong), each m_block_size=128 rows
+# Total TMEM: 2 output tiles (O^H, O^L) + 2 S tiles (overwritten by P)
+assert self.tmem_total <= SM100_TMEM_CAPACITY_COLUMNS  # 256 KB check
+```
 
 ### Register Pressure Management
 
@@ -124,6 +232,36 @@ But each softmax thread needs:
 - Additional registers for temporaries, loop variables, coefficients
 
 This exceeds the budget. FA4's solution: **staged P storage.** The first 3/4 of P is computed, stored to TMEM (which triggers the corresponding MMA), and registers are freed. Then the remaining 1/4 is computed separately. This trades a small amount of instruction overhead for staying within register limits.
+
+<!-- 🔄 CHANGED: Added code showing split_P_arrive and per-config register tuning -->
+
+```python
+# FA4 (Blackwell) — flash_attn/cute/flash_fwd_sm100.py
+# Staged P storage: write 3/4 of P first to free registers, then the last 1/4.
+
+self.split_P_arrive = n_block_size // 4 * 3           # = 96 for n_block_size=128
+self.split_P_arrive = int(self.split_P_arrive / 32) * 32  # align to 32
+assert self.split_P_arrive % 32 == 0
+assert self.split_P_arrive < self.n_block_size
+
+# Per-config register tuning — different configs need different register budgets
+# Key: (is_causal, use_2cta, head_dim, is_sm103)
+SM100_TUNING_CONFIGS = {
+    (True, False, 128, False): {
+        'ex2_emu_freq': 10,        # emit FMA-emulated exp2 every 10th element
+        'ex2_emu_start_frg': 1,    # start emulation from fragment 1
+        'num_regs_softmax': 176,   # register budget for softmax warpgroups
+        'num_regs_correction': 88  # register budget for correction warpgroup
+    },
+    (False, True, 128, False): {
+        'ex2_emu_freq': 16,
+        'ex2_emu_start_frg': 1,
+        'num_regs_softmax': 192,
+        'num_regs_correction': 72
+    },
+    # ...
+}
+```
 
 ---
 
@@ -143,28 +281,142 @@ FA4 implements `2^x` in software using the classical Cody-Waite range reduction 
 
 The integer part `2^⌊x⌋` is computed via **bit manipulation** of the IEEE 754 exponent field — essentially a shift-and-add on integer ALU.
 
-The fractional part `2^frac` (where frac ∈ [0, 1)) is approximated by a low-degree polynomial evaluated with **FMA (fused multiply-add) instructions**:
+The fractional part `2^frac` (where frac ∈ [0, 1)) is approximated by a low-degree polynomial evaluated with **FMA (fused multiply-add) instructions**.
 
-```
-2^frac ≈ p0 + p1·frac + p2·frac² + p3·frac³
+<!-- 🔄 CHANGED: Replaced pseudocode with actual FA4 source code for exp2 emulation -->
+
+Here's the actual implementation — first the polynomial coefficients (computed via the Sollya package to minimize relative error):
+
+```python
+# FA4 (Blackwell) — flash_attn/cute/utils.py
+# Minimax polynomial coefficients for 2^x on [0, 1)
+
+POLY_EX2 = {
+    3: (
+        1.0,
+        0.695146143436431884765625,     # p1
+        0.227564394474029541015625,     # p2
+        0.077119089663028717041015625,  # p3
+    ),
+    # Degree 3 matches hardware MUFU to within 1 BF16 ULP on 99% of inputs
+}
 ```
 
-evaluated via Horner's method:
+And the full emulation algorithm — note the range reduction via bit tricks and polynomial evaluation via Horner's method with FMA:
 
-```
-result = ((p3·frac + p2)·frac + p1)·frac + p0
+```python
+# FA4 (Blackwell) — flash_attn/cute/utils.py
+
+@dsl_user_op
+def ex2_emulation(x: Float32, *, poly_degree: int = 3) -> Float32:
+    fp32_round_int = float(2**23 + 2**22)
+    x_clamped = cute.arch.fmax(x, -127.0)  # Step 1: clamp to avoid underflow
+
+    # Step 2: compute ⌊x⌋ via round-down trick
+    x_rounded = add_round_down(x_clamped, fp32_round_int)
+    x_rounded_back = x_rounded - fp32_round_int
+    x_frac = x_clamped - x_rounded_back  # Step 3: fractional part ∈ [0, 1)
+
+    # Step 4: evaluate polynomial (Horner's method using FMA)
+    x_frac_ex2 = evaluate_polynomial(x_frac, POLY_EX2[poly_degree])
+
+    # Step 5: combine via bit manipulation — shift ⌊x⌋ into exponent field
+    return combine_int_frac_ex2(x_rounded, x_frac_ex2)
 ```
 
-Each step is a single FMA. The key insight: **FMA units can run in parallel with MUFU**, effectively doubling (or more) the exponential throughput by splitting work across both functional units.
+<!-- 🔄 CHANGED: Added the actual Horner evaluation and PTX bit manipulation code -->
+
+The Horner evaluation is pure FMA — each step is a single fused multiply-add:
+
+```python
+# FA4 (Blackwell) — flash_attn/cute/utils.py
+
+def evaluate_polynomial(x: Float32, poly: Tuple[Float32, ...]) -> Float32:
+    deg = len(poly) - 1
+    out = poly[deg]                          # Start from highest coefficient
+    for i in cutlass.range_constexpr(deg - 1, -1, -1):
+        out = out * x + poly[i]              # Each iteration = 1 FMA instruction
+    return out
+```
+
+And the bit manipulation to combine the integer and fractional parts drops to raw PTX:
+
+```python
+# FA4 (Blackwell) — flash_attn/cute/utils.py
+# Combines 2^⌊x⌋ (integer) and 2^frac (polynomial result) via bit ops
+
+@dsl_user_op
+def combine_int_frac_ex2(x_rounded: Float32, frac_ex2: Float32) -> Float32:
+    return cutlass.Float32(llvm.inline_asm(
+        T.f32(), [x_rounded.ir_value(), frac_ex2.ir_value()],
+        "{\n\t"
+        ".reg .s32 x_rounded_i, frac_ex_i, x_rounded_e, out_i;\n\t"
+        "mov.b32 x_rounded_i, $1;\n\t"        # reinterpret float as int
+        "mov.b32 frac_ex_i, $2;\n\t"
+        "shl.b32 x_rounded_e, x_rounded_i, 23;\n\t"  # shift ⌊x⌋ into exponent field
+        "add.s32 out_i, x_rounded_e, frac_ex_i;\n\t"  # combine: 2^⌊x⌋ × 2^frac
+        "mov.b32 $0, out_i;\n\t"
+        "}\n",
+        "=f,f,f",
+    ))
+```
+
+<!-- 🔄 CHANGED: Added comparison with FA3's pure hardware exp2 -->
+
+Compare this entire machinery with FA3's approach — a single hardware instruction:
+
+```cpp
+// FA3 (Hopper) — hopper/softmax.h
+// Pure hardware MUFU — simple but bottlenecked at 16 ops/cycle/SM
+#pragma unroll
+for (int mi = 0; mi < size<0>(tensor); ++mi) {
+    #pragma unroll
+    for (int ni = 0; ni < size<1>(tensor); ++ni) {
+        tensor(mi, ni) = exp2f(tensor(mi, ni) * scale - max_scaled);
+        //                ^^^^^ Always hardware MUFU. No alternative path.
+    }
+}
+```
 
 ### Why Not Emulate Everything?
 
-Full emulation has costs:
-- **More registers** for polynomial coefficients and intermediates
-- **Higher latency** per evaluation than a single MUFU instruction
-- **Register bandwidth** consumption that can cause spills
+Full emulation has costs: more registers for polynomial coefficients and intermediates, higher latency per evaluation, and register bandwidth consumption that can cause spills. So FA4 takes a **hybrid approach**:
 
-So FA4 takes a hybrid approach: **10–25% of exponentials are computed via FMA emulation**, with the rest going through hardware MUFU. The exact split is tuned empirically based on the MMA-to-exponential throughput ratio for each tile configuration.
+<!-- ✏️ CHANGED: Added actual FA4 code showing the hybrid MUFU/FMA split decision -->
+
+```python
+# FA4 — flash_attn/cute/softmax.py
+# Hybrid exp2: some fragments use hardware MUFU, others use FMA emulation
+@cute.jit
+def apply_exp2_convert(self, acc_S_row, acc_S_row_converted,
+                        ex2_emu_freq=0, ex2_emu_res=4, ex2_emu_start_frg=0):
+    frg_tile = 32
+    frg_cnt = cute.size(acc_S_row) // frg_tile
+    acc_S_row_frg = cute.logical_divide(acc_S_row, cute.make_layout(frg_tile))
+
+    for j in cutlass.range_constexpr(frg_cnt):
+        for k in cutlass.range_constexpr(0, cute.size(acc_S_row_frg, mode=[0]), 2):
+            if cutlass.const_expr(ex2_emu_freq == 0):
+                # All hardware MUFU (fallback, or SM103/B300 with doubled MUFU)
+                acc_S_row_frg[k, j] = cute.math.exp2(acc_S_row_frg[k, j], fastmath=True)
+                acc_S_row_frg[k+1, j] = cute.math.exp2(acc_S_row_frg[k+1, j], fastmath=True)
+            else:
+                if cutlass.const_expr(
+                    k % ex2_emu_freq < ex2_emu_freq - ex2_emu_res
+                    or j >= frg_cnt - 1
+                    or j < ex2_emu_start_frg
+                ):
+                    # Hardware MUFU path
+                    acc_S_row_frg[k, j] = cute.math.exp2(...)
+                    acc_S_row_frg[k+1, j] = cute.math.exp2(...)
+                else:
+                    # Software FMA emulation path (runs in parallel with MUFU!)
+                    acc_S_row_frg[k, j], acc_S_row_frg[k+1, j] = \
+                        utils.ex2_emulation_2(acc_S_row_frg[k, j],
+                                              acc_S_row_frg[k+1, j])
+```
+
+The `ex2_emu_freq` and `ex2_emu_res` parameters control the split. For example, `ex2_emu_freq=10, ex2_emu_res=4` means every 10th pair of elements, 4 are emulated and 6 use hardware. The exact ratios are tuned per configuration.
 
 ### Accuracy
 
@@ -188,20 +440,43 @@ The rescaling term `exp(m_{j-1} - m_j) · O_{j-1}` is a full vector multiplicati
 
 ### The Fix
 
-FA4 introduces a threshold τ (set to log₂(256) = 8.0):
+<!-- ✏️ CHANGED: Replaced pseudocode with actual FA4 implementation -->
 
+FA4 introduces a threshold τ (set to `log₂(256) = 8.0`). The implementation is embedded directly in the `update_row_max` method we saw earlier:
+
+```python
+# FA4 — flash_attn/cute/softmax.py
+# Conditional rescaling: skip when max hasn't changed significantly
+acc_scale_ = (row_max_old - row_max_safe) * self.scale_log2
+acc_scale = cute.math.exp2(acc_scale_, fastmath=True)
+
+if cutlass.const_expr(self.rescale_threshold > 0.0):
+    if acc_scale_ >= -self.rescale_threshold:
+        # New max is close to old max → skip rescaling
+        row_max_new = row_max_old
+        row_max_safe = row_max_old
+        acc_scale = 1.0  # No-op rescale (multiply by 1)
 ```
-if m_j - m_{j-1} > τ:
-    # Full rescale (standard path)
-    O_j = exp(m_{j-1} - m_j) · O_{j-1} + exp(S_j - m_j) · V_j
-else:
-    # Skip rescale, use old max
-    O_j = O_{j-1} + exp(S_j - m_{j-1}) · V_j
+
+Compare with FA3, where rescaling is **unconditional every iteration**:
+
+```cpp
+// FA3 (Hopper) — hopper/softmax.h
+// Unconditional rescaling — no threshold check
+#pragma unroll
+for (int mi = 0; mi < size(row_max); ++mi) {
+    float scores_max_cur = !Check_inf
+        ? row_max(mi)
+        : (row_max(mi) == -INFINITY ? 0.0f : row_max(mi));
+    scores_scale(mi) = exp2f((scores_max_prev(mi) - scores_max_cur)
+                             * softmax_scale_log2);  // ← Always computed
+    row_sum(mi) *= scores_scale(mi);                 // ← Always applied
+}
 ```
 
-When the new max doesn't exceed the old max by more than τ, the rescaling is skipped entirely. The key insight: **the final normalization step `Output = O_final / ℓ_final` corrects any accumulated drift.** As long as intermediate values don't overflow (which the threshold of 256× prevents), the final result is exact.
+When the new max doesn't exceed the old max by more than τ, FA4 skips rescaling entirely. The key insight: **the final normalization step `Output = O_final / ℓ_final` corrects any accumulated drift.** As long as intermediate values don't overflow (which the threshold of 256× prevents), the final result is exact.
 
-In practice, rescaling is needed only in the first few iterations when the running max is still being established. Once it stabilizes, most iterations skip rescaling entirely — saving a vector multiply per iteration. To avoid warp divergence, the rescaling decision is made per-warp: if **any** thread in the warp needs rescaling, all threads rescale.
+In practice, rescaling is needed only in the first few iterations when the running max is still being established. Once it stabilizes, most iterations skip rescaling entirely — saving a vector multiply per iteration.
 
 ---
 
@@ -212,6 +487,15 @@ The backward pass is where shared memory pressure is most severe. With five MMA 
 ### How 2-CTA Helps
 
 In 2-CTA MMA mode, a CTA pair cooperatively executes each MMA with M = 256 (each CTA holds half the M dimension). The critical benefit: **each CTA only stages half of operand B** in shared memory, while the hardware reads the combined B tile from both CTAs. This roughly halves SMEM traffic for operand B across the five backward GEMMs.
+
+The roofline improvement is significant:
+
+| Resource | 1-CTA (M=128) | 2-CTA (M=256) |
+|---|---|---|
+| MMA compute | 2560 cycles | 2560 cycles |
+| Total shared memory | **3328 cycles** | **2688 cycles** |
+| Exponential unit | 1024 cycles | 1024 cycles |
+| **SMEM overhead vs MMA** | **+30%** | **+5%** |
 
 ### The dQ Problem
 
@@ -240,9 +524,42 @@ This gets the deterministic backward pass to ~75% the speed of the nondeterminis
 
 Load imbalance is inherent in attention — causal masking means tiles near the diagonal do more work than tiles far from it; variable-length batches have different sequence lengths.
 
-FA4 applies **Longest-Processing-Time-First (LPT) scheduling**, a classical result from parallel processing theory. For causal masking, the naive grid order processes tiles from shortest to longest (because the grid iterates Q blocks in order, and early Q blocks have fewer valid KV blocks). LPT reverses this, processing the heaviest tiles first to minimize makespan.
+<!-- ✏️ CHANGED: Added actual FA4 LPT scheduling code -->
 
-The scheduling also considers L2 cache locality: heads are divided into sections that fit in L2 cache, and the scheduler traverses heads-per-section → mblocks (reversed) → sections → batches. For GQA/MQA, all query heads per KV head are traversed before varying over mblocks.
+FA4 applies **Longest-Processing-Time-First (LPT) scheduling**, a classical result from parallel processing theory. The implementation is clean — just reverse the block order:
+
+```python
+# FA4 — flash_attn/cute/tile_scheduler.py
+# LPT: reverse block order so heaviest tiles (near diagonal) run first
+@cute.jit
+def get_current_work(self) -> WorkTileInfo:
+    # ... L2-swizzled coordinate mapping ...
+
+    # Longest-processing-time-first: one line does the trick
+    if const_expr(params.lpt):
+        block = params.num_block - 1 - block  # ← Simply reverse!
+
+    is_valid = self._tile_idx < params.total_blocks
+    return WorkTileInfo(
+        (Int32(block), Int32(head_idx), Int32(batch_idx), Int32(self._split_idx)),
+        is_valid
+    )
+```
+
+But the real insight is in how it interacts with L2 cache locality. The scheduler divides heads into sections that fit in L2 cache, and traverses heads-per-section → mblocks (reversed) → sections → batches:
+
+```python
+# FA4 — flash_attn/cute/tile_scheduler.py
+# L2-aware head swizzling: fit as many KV heads as possible in L2
+size_one_kv_head = args.seqlen_k * (args.headdim + args.headdim_v) * args.element_size
+size_l2 = 50 * 1024 * 1024  # 40 MB budget for K & V
+
+# swizzle = how many heads fit in L2 (rounded to power of 2 for fast divmod)
+log2_floor = lambda n: 31 - clz(n)
+swizzle = 1 if size_l2 < size_one_head else (1 << log2_floor(size_l2 // size_one_head))
+```
+
+For GQA/MQA, all query heads per KV head are traversed before varying over mblocks — ensuring maximum KV reuse from L2 cache.
 
 Empirical gains: **4–8% FLOPS improvement for MHA, 7–14% for MQA** on H200 (this optimization is architecture-agnostic and also benefits FA3 on Hopper).
 
@@ -250,7 +567,69 @@ Empirical gains: **4–8% FLOPS improvement for MHA, 7–14% for MQA** on H200 (
 
 ## The Framework: CuTe-DSL
 
+<!-- ✏️ CHANGED: Expanded CuTe-DSL section with full code comparison -->
+
 Perhaps the most practically impactful contribution for the broader ecosystem: FA4 is implemented **entirely in CuTe-DSL embedded in Python** — no C++ template metaprogramming whatsoever.
+
+### C++ Templates vs. Python DSL: A Side-by-Side
+
+The same conceptual operation — computing softmax rescaling — looks fundamentally different in the two frameworks:
+
+```cpp
+// FA3 (C++ CUTLASS templates) — hopper/softmax.h
+// 30+ lines of template metaprogramming
+template<bool Is_first, bool Check_inf=false, typename Tensor0>
+__forceinline__ __device__ TensorT max_get_scale(Tensor0 &acc_s) {
+    Tensor scores = make_tensor(acc_s.data(),
+        flash::convert_layout_acc_rowcol(acc_s.layout()));
+    static_assert(CUTE_STATIC_V(size<0>(scores)) == kNRows);
+    TensorT scores_scale;
+    if constexpr (Is_first) {
+        flash::template reduce_max</*zero_init=*/true>(scores, row_max);
+        cute::fill(scores_scale, 1.f);
+    } else {
+        Tensor scores_max_prev = make_fragment_like(row_max);
+        cute::copy(row_max, scores_max_prev);
+        flash::template reduce_max</*zero_init=*/false>(scores, row_max);
+        #pragma unroll
+        for (int mi = 0; mi < size(row_max); ++mi) {
+            float scores_max_cur = !Check_inf
+                ? row_max(mi)
+                : (row_max(mi) == -INFINITY ? 0.0f : row_max(mi));
+            scores_scale(mi) = exp2f((scores_max_prev(mi) - scores_max_cur)
+                                     * softmax_scale_log2);
+            row_sum(mi) *= scores_scale(mi);
+        }
+    }
+    return scores_scale;
+};
+```
+
+```python
+# FA4 (Python CuTe-DSL) — flash_attn/cute/softmax.py
+# Same algorithm, same low-level control, readable Python
+@cute.jit
+def update_row_max(self, acc_S_row: cute.TensorSSA, is_first: int):
+    if cutlass.const_expr(is_first):
+        row_max_new = self._compute_row_max(acc_S_row)
+        row_max_safe = row_max_new if row_max_new != -cutlass.Float32.inf else 0.0
+        acc_scale = 0.0
+    else:
+        row_max_old = self.row_max[0]
+        row_max_new = self._compute_row_max(acc_S_row, init_val=row_max_old)
+        row_max_safe = row_max_new if row_max_new != -cutlass.Float32.inf else 0.0
+        acc_scale_ = (row_max_old - row_max_safe) * self.scale_log2
+        acc_scale = cute.math.exp2(acc_scale_, fastmath=True)
+        if cutlass.const_expr(self.rescale_threshold > 0.0):
+            if acc_scale_ >= -self.rescale_threshold:
+                row_max_new = row_max_old
+                row_max_safe = row_max_old
+                acc_scale = 1.0
+    self.row_max[0] = row_max_new
+    return row_max_safe, acc_scale
+```
+
+Same algorithm, same low-level control (both compile down to PTX), but the Python version is more readable, doesn't require `template<bool Is_first, bool Check_inf=false, typename Tensor0>` incantations, and compiles in seconds instead of minutes. When CuTe-DSL's APIs don't cover something, raw PTX is available as an escape hatch — as we saw in the `combine_int_frac_ex2` function.
 
 ### Compile Time
 
@@ -262,9 +641,7 @@ Perhaps the most practically impactful contribution for the broader ecosystem: F
 
 And FA3 required precompiling **hundreds of kernels** for different attention variants. FA4's JIT compilation means you compile only what you need, when you need it.
 
-### Why It Matters
-
-CuTe-DSL is isomorphic to CUTLASS C++ — same programming model, same expressivity, same access to low-level GPU primitives — but with Python's meta-programming ergonomics and JIT compilation. When CuTe-DSL's APIs don't cover something, raw PTX is available as an escape hatch.
+### Practical Impact
 
 The practical impact is already visible: developers have built **FlexAttention and block-sparse attention variants** on top of FA4's framework without modifying core code. The barrier to entry drops from "years of C++ template metaprogramming expertise" to "a few months of GPU programming experience."
 
@@ -296,5 +673,4 @@ FlashAttention-4 is a case study in what happens when you take hardware asymmetr
 
 The code is open source at [github.com/Dao-AILab/flash-attention](https://github.com/Dao-AILab/flash-attention/tree/main/flash_attn/cute).
 
-*The B300/GB300 will double MUFU throughput to 32 ops/cycle/SM. When that happens, the bottleneck map will shift again. The cycle continues.*
-
+*The B300/GB300 will double MUFU throughput to 32 ops/cycle/SM — and FA4 already handles this: the tuning config sets `ex2_emu_freq: 0` for SM103, disabling emulation entirely. When the bottleneck map shifts again, the framework is ready.*
