@@ -9,10 +9,9 @@ show_excerpts: false
 sidebar:
   nav: "mlsys"
 ---
-
 In the [previous post](https://minseoc03.github.io/mlsys/hardware/flash_attention_4/), we broke down how FlashAttention-4 addresses the fundamental hardware imbalance on Blackwell: tensor cores doubled to 2.25 PFLOPS for BF16, but SMEM bandwidth and MUFU throughput stayed flat. The result was a careful co-design of algorithms and kernels — polynomial exp2 emulation, conditional rescaling, 2-CTA backward passes, TMEM-aware pipelining — all targeting the specific bottlenecks that emerged when matmul got too fast for everything else.
 
-Now, NVIDIA's next-generation **Vera Rubin** platform is entering full production in H2 2026. The Rubin GPU packs 224 SMs (up from 148), HBM4 at 22 TB/s (2.8× Blackwell), and up to 50 PFLOPS of NVFP4 inference. Meanwhile, the Rubin CPX — a separate chip purpose-built for prefill — offers 20 PFLOPS of dense FP4 with only 128 GB of GDDR7 at 2 TB/s.
+Now, NVIDIA's next-generation **Vera Rubin** platform is entering full production in H2 2026. The Rubin GPU packs 224 SMs (up from 148), HBM4 at 22 TB/s (2.8× Blackwell), and up to 50 PFLOPS of NVFP4 inference. Meanwhile, the Rubin CPX — a separate chip designed for massive-context processing (roughly analogous to the prefill phase in LLM serving) — delivers up to 30 PFLOPS of NVFP4 compute with 128 GB of GDDR7.
 
 The question is: what happens to the attention bottleneck map? And what would a hypothetical "FlashAttention-5" need to look like?
 
@@ -24,16 +23,18 @@ FA4's insight was clean: one asymmetry (tensor cores 2× faster, everything else
 
 ### The Numbers We Know
 
-| | Blackwell (B200) | Rubin (R200) | Scaling |
-|---|---|---|---|
-| BF16 tensor core | ~2.25 PFLOPS | ~3.6 PFLOPS (est.) | **~1.6×** |
-| FP4 tensor core (dense) | 10 PFLOPS | 35 PFLOPS | **3.5×** |
-| HBM bandwidth | 8 TB/s | 22 TB/s | **2.8×** |
-| SM count | 148 | 224 | **1.5×** |
-| NVLink bandwidth/GPU | 1.8 TB/s | 3.6 TB/s | **2×** |
-| HBM capacity | 192 GB | 288 GB | **1.5×** |
-| SMEM bandwidth/SM | 128 B/cycle (est.) | ? | **?** |
-| MUFU throughput/SM | 16 ops/cycle | ? | **?** |
+| | Blackwell (B200) | Rubin (R200) | Scaling | Source |
+|---|---|---|---|---|
+| NVFP4 tensor core (dense) | 10 PFLOPS | 35 PFLOPS | **3.5×** | Official |
+| BF16 tensor core | ~2.25 PFLOPS | ~3.6 PFLOPS | **~1.6×** | *Estimated*¹ |
+| HBM bandwidth | 8 TB/s | 22 TB/s | **2.8×** | Official |
+| SM count | 148 | 224 | **1.5×** | Official |
+| NVLink bandwidth/GPU | 1.8 TB/s | 3.6 TB/s | **2×** | Official |
+| HBM capacity | 192 GB | 288 GB | **1.5×** | Official |
+| SMEM bandwidth/SM | 128 B/cycle | ? | **?** | Not disclosed |
+| MUFU throughput/SM | 16 ops/cycle | ? | **?** | Not disclosed |
+
+*¹ BF16 ~3.6 PFLOPS is a back-of-the-envelope estimate based on SM count scaling (224/148 × 2.25 ≈ 3.4) and likely clock speed improvements, not an official NVIDIA specification. NVIDIA's public Rubin disclosures emphasize NVFP4 and FP8 performance.*
 
 The critical unknowns are SMEM bandwidth per SM and MUFU throughput per SM. NVIDIA hasn't disclosed these for Rubin. But the pattern from Hopper → Blackwell is instructive: tensor core throughput doubled per SM, SMEM bandwidth stayed at 128 B/cycle, MUFU stayed at 16 ops/cycle. If this trend continues — even partially — the relative gap between matmul and non-matmul only widens further.
 
@@ -45,13 +46,13 @@ This is the easy case.
 
 ### FP4: Where Things Get Interesting
 
-FP4 is where Rubin's design intent is most visible. At 3.5× the dense FP4 throughput of Blackwell, and with a new Transformer Engine featuring adaptive compression that can push effective throughput toward 50 PFLOPS, the tensor cores are leaving everything else behind at an unprecedented rate.
+FP4 is where Rubin's design intent is most visible. At 3.5× the dense NVFP4 throughput of Blackwell, and with a new Transformer Engine featuring adaptive compression that can push effective throughput toward 50 PFLOPS, the tensor cores are leaving everything else behind at an unprecedented rate.
 
-Let's redo the FA4-style roofline analysis for a hypothetical FP4 attention forward pass. The matmul operations (QK^T and PV) run on tensor cores at FP4 precision, but the softmax — max, subtract, exponentiate, sum, normalize — is inherently FP32. You can't compute `exp2(x)` in FP4. This means:
+Let's sketch an FA4-style roofline analysis for a hypothetical NVFP4 attention forward pass. Under a mixed-precision regime, portions of the QK^T and PV matmuls could exploit NVFP4 tensor cores (with FP32 accumulators and scaling metadata), but the softmax — max, subtract, exponentiate, sum, normalize — typically relies on higher precision (often FP32) for numerical stability. You can't meaningfully compute `exp2(x)` at 4-bit precision. This creates a widening gap:
 
-- **MMA time drops by ~3.5×** (FP4 tensor cores).
+- **MMA time could drop by up to ~3.5×** (if NVFP4 tensor cores are fully utilized for QK^T/PV).
 - **Exponential time stays the same** (MUFU is precision-agnostic for transcendentals — it always operates in FP32).
-- **SMEM traffic changes modestly** (FP4 operands are half the size of FP8, but accumulation is still FP32, and P is likely FP8 or BF16 for the PV matmul).
+- **SMEM traffic changes modestly** (NVFP4 operands are smaller, but accumulation is still FP32, and P likely needs FP8 or BF16 precision for the PV matmul).
 
 On Blackwell with BF16, the roofline showed MMA and exponential roughly tied (~1024 cycles each for 128³ tiles). With FP4 on Rubin, if MMA cycles drop by 3.5× but exponential stays flat, the exponential unit would dominate by a factor of **~3.5×**. The softmax wouldn't just be a co-bottleneck — it would become the *overwhelming* bottleneck.
 
@@ -67,46 +68,50 @@ This means FA4's current 10-25% FMA emulation split would be wildly insufficient
 
 Rubin's most architecturally novel feature for attention is the **3rd-generation Transformer Engine with adaptive compression**. Unlike Blackwell's structured 2:4 sparsity (which required exactly half of values to be zero, and which almost nobody used in practice), Rubin's adaptive compression dynamically detects and skips zeros in the data stream without forcing values to zero.
 
-This matters for attention in a subtle way. The attention matrix P = softmax(QK^T) is naturally sparse in many practical settings — especially with causal masking, local attention windows, or after the first few tokens where most attention weights are near zero. If the Transformer Engine can skip near-zero P values during the PV matmul, the effective FLOPS for PV drops without any algorithmic change.
+*What follows is speculative — NVIDIA has not disclosed how adaptive compression interacts with fused attention kernels at the SM level. But the architectural implications are worth exploring.*
 
-But exploiting this requires the FA kernel to:
+One possible implication for attention: the attention matrix P = softmax(QK^T) is naturally sparse in many practical settings — especially with causal masking, local attention windows, or after the first few tokens where most attention weights are near zero. If the Transformer Engine can skip near-zero P values during the PV matmul, the effective FLOPS for PV could drop without any algorithmic change.
+
+But exploiting this — if it is exposed to software at the tensor-input boundary — would likely require the FA kernel to:
 
 1. **Produce P in a format the Transformer Engine can compress.** This might mean specific memory layouts, quantization schemes, or metadata that the hardware compression can consume.
-2. **Coordinate compression with tiling.** If compression ratios vary across tiles (dense attention regions vs. sparse regions), the pipeline timing becomes data-dependent — a nightmare for the carefully balanced ping-pong schedules that FA4 uses.
-3. **Potentially rethink the softmax-to-MMA boundary.** Currently, P is computed, stored to TMEM, and consumed by the PV MMA. If the Transformer Engine needs to inspect P for compression before the MMA, there might be an additional pipeline stage — or the compression might be transparent if it operates on the MMA input path.
+2. **Coordinate compression with tiling.** If compression ratios vary across tiles (dense attention regions vs. sparse regions), the pipeline timing becomes data-dependent — potentially disrupting the carefully balanced ping-pong schedules that FA4 uses.
+3. **Potentially rethink the softmax-to-MMA boundary.** Currently, P is computed, stored to TMEM, and consumed by the PV MMA. If the compression engine operates between these stages, there might be an additional pipeline step — or it might be entirely transparent if the hardware handles it on the MMA input path.
 
-This is speculative, but it's the kind of hardware-algorithm co-design that FA4 demonstrated is essential.
+These are open design questions, not known hardware contracts. But they illustrate the kind of hardware-algorithm co-design that FA4 demonstrated is essential.
 
 ---
 
 ## The Backward Pass: SMEM Pressure Intensifies
 
-FA4's backward pass analysis showed that shared memory traffic exceeds MMA compute by ~30% in the 1-CTA case, reduced to ~5% with 2-CTA mode. On Rubin, if tensor cores get 1.6× faster for BF16 (or 3.5× for FP4) while SMEM bandwidth stays flat, the backward pass becomes even more SMEM-dominated.
+FA4's backward pass analysis showed that shared memory traffic exceeds MMA compute by ~30% in the 1-CTA case, reduced to ~5% with 2-CTA mode. On Rubin, if tensor cores get faster while per-SM SMEM bandwidth stays flat (as it did from Hopper to Blackwell — though this is not yet confirmed for Rubin), the backward pass becomes even more SMEM-dominated.
 
-FA4's 2-CTA approach halves operand B traffic by having each CTA stage only half of B. The natural extension is **4-CTA or cluster-wide MMA**, where four CTAs in a cluster share operand loading. Blackwell already supports 2-CTA clusters; Rubin might extend this to larger cluster sizes, or provide new primitives for cross-CTA data sharing.
+FA4's 2-CTA approach halves operand B traffic by having each CTA stage only half of B. A natural extension *would be* larger cooperative MMA patterns — e.g., 4-CTA or cluster-wide operand sharing — though whether Rubin's hardware supports this is unknown at time of writing. Blackwell's 2-CTA mode was a new capability that didn't exist on Hopper; Rubin may similarly introduce new cooperative primitives.
 
-Alternatively, the TMEM capacity might increase on Rubin. If more intermediate results can live in TMEM (eliminating round-trips through SMEM), the absolute SMEM traffic drops. But without confirmed specs, this is speculation.
+Similarly, if TMEM capacity increases on Rubin (not yet disclosed), more intermediate results could stay in TMEM, reducing SMEM round-trips. These are possibilities to watch for in the Rubin architecture documentation, not confirmed features.
 
-The dQ atomic reduction problem also scales: with more SMs (224 vs 148), more CTAs are writing to the same dQ tiles, increasing atomic contention. The deterministic backward pass's semaphore-based serialization becomes more expensive as the CTA count grows. New primitives — perhaps hardware-supported reductions or hierarchical locking — might be needed.
+The dQ atomic reduction problem also scales: with more SMs (224 vs 148), more CTAs are writing to the same dQ tiles, increasing atomic contention. The deterministic backward pass's semaphore-based serialization becomes more expensive as the CTA count grows.
 
 ---
 
 ## Rubin CPX: A Completely Different Attention Problem
 
-The Rubin CPX is perhaps the most interesting challenge for FlashAttention. This chip is purpose-built for **prefill** (the compute-heavy phase where the full QK^T and PV matmuls happen over long input sequences), with a radically different compute-to-bandwidth ratio:
+The Rubin CPX is perhaps the most interesting challenge for FlashAttention. Designed for massive-context processing (the compute-heavy "context phase" roughly analogous to prefill in LLM serving), it has a radically different compute-to-bandwidth ratio compared to the R200:
 
-| | R200 | Rubin CPX |
-|---|---|---|
-| FP4 dense | 35 PFLOPS | 20 PFLOPS |
-| Memory bandwidth | 22 TB/s (HBM4) | 2 TB/s (GDDR7) |
-| Memory capacity | 288 GB | 128 GB |
-| **Compute/BW ratio** | **1.6 FLOPS/byte** | **10 FLOPS/byte** |
+| | R200 | Rubin CPX | Source |
+|---|---|---|---|
+| NVFP4 compute | 35 PFLOPS (dense) | up to 30 PFLOPS | Official |
+| Memory | 288 GB HBM4 | 128 GB GDDR7 | Official |
+| HBM/memory bandwidth | 22 TB/s | *Not officially disclosed per-chip*² | — |
+| **Compute/BW ratio** | ~1,590 FLOPS/byte | **Substantially higher** | — |
 
-The CPX has **6× higher compute-to-bandwidth ratio** than the R200. This means:
+*² NVIDIA discloses 1.7 PB/s memory bandwidth for the full NVL144 CPX rack (144 GPUs), but per-chip GDDR7 bandwidth has not been officially specified. Third-party estimates place it around 2 TB/s, which would imply ~10,000-15,000 FLOPS/byte — roughly 6-10× more compute-heavy than the R200. The exact ratio matters less than the directional conclusion: CPX is far more compute-dense relative to its memory bandwidth.*
+
+This extreme ratio means:
 
 ### FlashAttention's IO-Awareness Becomes Even More Critical
 
-The entire point of FlashAttention was to avoid materializing the N×N attention matrix in HBM. On CPX, with only 2 TB/s of bandwidth, even modest HBM traffic is catastrophic. The tiling strategy must be even more aggressive — larger tiles to maximize compute per byte loaded, potentially at the cost of more TMEM/register pressure.
+The entire point of FlashAttention was to avoid materializing the N×N attention matrix in HBM. On CPX, with relatively limited memory bandwidth compared to its compute, even modest memory traffic is costly. The tiling strategy must be even more aggressive — larger tiles to maximize compute per byte loaded, potentially at the cost of more TMEM/register pressure.
 
 ### Recomputation Becomes Free(er)
 
@@ -163,7 +168,7 @@ The modular design also helps: the block-sparse, masking, and scheduling primiti
 | **MUFU (exp)** | Co-bottleneck | Similar | **Dominant** | **Dominant** |
 | **SMEM bandwidth** | Bwd bottleneck | Worse | Much worse | Less relevant |
 | **HBM bandwidth** | Not bottleneck | Not bottleneck | Not bottleneck | **Dominant** |
-| **Cross-GPU comm** | N/A | Long context | Long context | Prefill/decode split |
+| **Cross-GPU comm** | N/A | Long context | Long context | Depends on disaggregated serving topology |
 
 FA4 addressed a single clean asymmetry. On Rubin, the attention kernel faces **multiple simultaneous asymmetries** that vary by precision (FP4 vs BF16), chip variant (R200 vs CPX), and scale (single GPU vs rack). The methodology — roofline analysis per resource, targeted algorithmic mitigation — remains sound. But the number of configurations to optimize explodes.
 
